@@ -1,190 +1,237 @@
 const morseMap = {
-  "A": ".-",    "B": "-...",  "C": "-.-.",  "D": "-..",
-  "E": ".",     "F": "..-.",  "G": "--.",   "H": "....",
-  "I": "..",    "J": ".---",  "K": "-.-",   "L": ".-..",
-  "M": "--",    "N": "-.",    "O": "---",   "P": ".--.",
-  "Q": "--.-",  "R": ".-.",   "S": "...",   "T": "-",
-  "U": "..-",   "V": "...-",  "W": ".--",   "X": "-..-",
-  "Y": "-.--",  "Z": "--..",
-  "0": "-----", "1": ".----", "2": "..---", "3": "...--",
-  "4": "....-", "5": ".....", "6": "-....", "7": "--...",
-  "8": "---..", "9": "----.",
-  ".": ".-.-.-", ",": "--..--", "?": "..--..", "'": ".----.",
-  "!": "-.-.--", "/": "-..-.", "(": "-.--.", ")": "-.--.-",
-  "&": ".-...", ":": "---...", ";": "-.-.-.", "=": "-...-",
-  "+": ".-.-.", "-": "-....-", "_": "..--.-", "\"": ".-..-.",
-  "$": "...-..-", "@": ".--.-.", " ": "/"
+    "A": ".-",
+    "B": "-...",
+    "C": "-.-.",
+    "D": "-..",
+    "E": ".",
+    "F": "..-.",
+    "G": "--.",
+    "H": "....",
+    "I": "..",
+    "J": ".---",
+    "K": "-.-",
+    "L": ".-..",
+    "M": "--",
+    "N": "-.",
+    "O": "---",
+    "P": ".--.",
+    "Q": "--.-",
+    "R": ".-.",
+    "S": "...",
+    "T": "-",
+    "U": "..-",
+    "V": "...-",
+    "W": ".--",
+    "X": "-..-",
+    "Y": "-.--",
+    "Z": "--..",
+    "0": "-----",
+    "1": ".----",
+    "2": "..---",
+    "3": "...--",
+    "4": "....-",
+    "5": ".....",
+    "6": "-....",
+    "7": "--...",
+    "8": "---..",
+    "9": "----.",
+    ".": ".-.-.-",
+    ",": "--..--",
+    "?": "..--..",
+    "'": ".----.",
+    "!": "-.-.--",
+    "/": "-..-.",
+    "(": "-.--.",
+    ")": "-.--.-",
+    "&": ".-...",
+    ":": "---...",
+    ";": "-.-.-.",
+    "=": "-...-",
+    "+": ".-.-.",
+    "-": "-....-",
+    "_": "..--.-",
+    "\"": ".-..-.",
+    "$": "...-..-",
+    "@": ".--.-.",
+    " ": "/"
 };
 
 const invMorseMap = {};
 for (const key in morseMap) {
-  invMorseMap[morseMap[key]] = key;
+    invMorseMap[morseMap[key]] = key;
 }
 
 function encode() {
-  const text = document.getElementById('textInput').value.toUpperCase();
-  let result = [];
-  for (let ch of text) {
-    if (morseMap[ch]) {
-      result.push(morseMap[ch]);
+    const text = document.getElementById('textInput').value.toUpperCase();
+    const result = [];
+    for (const ch of text) {
+        if (morseMap[ch]) {
+            result.push(morseMap[ch]);
+        }
     }
-  }
-  document.getElementById('morseOutput').value = result.join(' ');
+    document.getElementById('textOutput').value = result.join(' ');
 }
 
 function decode() {
-  const morse = document.getElementById('morseInput').value.trim().split(/\s+/);
-  let result = '';
-  for (let symbol of morse) {
-    if (invMorseMap[symbol]) {
-      result += invMorseMap[symbol];
+    const code = document.getElementById('codeInput').value.trim().split(' ');
+    const result = [];
+    for (const token of code) {
+        if (invMorseMap[token]) {
+            result.push(invMorseMap[token]);
+        }
     }
-  }
-  document.getElementById('textOutput').value = result;
+    document.getElementById('codeOutput').value = result.join('');
 }
 
-function playMorse() {
-  const morse = document.getElementById('morseOutput').value.trim().split(' ');
-  const wpm = parseFloat(document.getElementById('wpm').value);
-  const unit = 1200 / wpm;
-  const freq = parseFloat(document.getElementById('freq').value);
-  const vol  = parseFloat(document.getElementById('vol').value);
-  let time = 0;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  for (let code of morse) {
-    for (let char of code) {
-      if (char === '.') {
-        beep(ctx, time, unit, freq, vol);
-        time += unit + unit;
-      } else if (char === '-') {
-        beep(ctx, time, unit * 3, freq, vol);
-        time += unit * 3 + unit;
-      }
+// Audio parameters
+let wpm = 20;
+let tone = 600;
+let volume = 0.5;
+
+// Play beep for dot or dash using Web Audio API
+function playBeep(char) {
+    return new Promise(resolve => {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.frequency.value = tone;
+        oscillator.type = 'sine';
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        gainNode.gain.value = volume;
+        const unit = 1.2 / wpm;
+        const duration = char === '.' ? unit : 3 * unit;
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration);
+        setTimeout(() => {
+            resolve();
+        }, (duration + unit) * 1000);
+    });
+}
+
+async function playBeepSequence(morseString) {
+    for (const char of morseString) {
+        if (char === '.' || char === '-') {
+            await playBeep(char);
+        } else if (char === ' ') {
+            await new Promise(r => setTimeout(r, 3 * (1.2 / wpm) * 1000));
+        } else if (char === '/') {
+            await new Promise(r => setTimeout(r, 7 * (1.2 / wpm) * 1000));
+        }
     }
-    time += unit * 2;
-  }
 }
 
-function beep(ctx, startTime, duration, freq, vol) {
-  const oscillator = ctx.createOscillator();
-  const gainNode = ctx.createGain();
-  oscillator.frequency.value = freq;
-  gainNode.gain.value = vol;
-  oscillator.connect(gainNode).connect(ctx.destination);
-  oscillator.start(ctx.currentTime + startTime / 1000);
-  oscillator.stop(ctx.currentTime + (startTime + duration) / 1000);
+function updateWPM(value) {
+    wpm = parseInt(value, 10);
 }
 
-// Practice Mode
-const practiceWords = ["SOS","HELP","MORSE","CODE","JAVA","PYTHON","HELLO","WORLD","TEST","AI"];
-let currentPractice = '';
+function updateTone(value) {
+    tone = parseInt(value, 10);
+}
+
+function updateVolume(value) {
+    volume = parseFloat(value);
+}
+
+// Practice mode
+let practiceRunning = false;
+
 function startPractice() {
-  const allKeys = Object.keys(morseMap).filter(k => k.length === 1 && /[A-Z0-9]/.test(k));
-  const chooseWord = Math.random() < 0.5;
-  if (chooseWord) {
-    currentPractice = practiceWords[Math.floor(Math.random()*practiceWords.length)];
-  } else {
-    currentPractice = allKeys[Math.floor(Math.random()*allKeys.length)];
-  }
-  document.getElementById('practicePrompt').textContent = 'Listen...';
-  document.getElementById('practiceInput').value = '';
-  document.getElementById('practiceInput').disabled = false;
-  document.getElementById('practiceResult').textContent = '';
-  document.getElementById('morseOutput').value = currentPractice.split('').map(ch => morseMap[ch]).join(' ');
-  playMorse();
-  setTimeout(() => {
-    document.getElementById('practicePrompt').textContent = 'Type what you heard:';
-  }, 1000);
-}
+    if (practiceRunning) return;
+    practiceRunning = true;
+    const resultDiv = document.getElementById('practiceResult');
+    resultDiv.innerText = '';
+    const type = document.getElementById('practiceType').value;
+    const duration = parseInt(document.getElementById('practiceDuration').value, 10) * 60000;
+    const startTime = Date.now();
 
-function checkPractice() {
-  const input = document.getElementById('practiceInput').value.trim().toUpperCase();
-  if (input.length === currentPractice.length) {
-    if (input === currentPractice) {
-      updatePracticeResult('Correct! The answer was ' + currentPractice, 'green');
-    } else {
-      updatePracticeResult('Incorrect. The correct answer was ' + currentPractice, 'red');
+    async function generateItem() {
+        if (!practiceRunning || Date.now() - startTime >= duration) {
+            practiceRunning = false;
+            resultDiv.innerText += '\nPractice finished.';
+            return;
+        }
+        let item;
+        if (type === 'letter') {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            item = letters[Math.floor(Math.random() * letters.length)];
+        } else {
+            const words = ['HELLO', 'WORLD', 'CODE', 'TEST', 'MORSE', 'PRACTICE', 'GPT'];
+            item = words[Math.floor(Math.random() * words.length)];
+        }
+        resultDiv.innerText += `\nSent: ${item}`;
+        await playBeepSequence(item.split('').map(ch => morseMap[ch] || '').join(' '));
+        const answer = prompt('Enter what you heard:');
+        resultDiv.innerText += ` -> You wrote: ${answer}`;
+        setTimeout(generateItem, 500);
     }
-    document.getElementById('practiceInput').disabled = true;
-  }
+    generateItem();
 }
 
-function updatePracticeResult(message, color) {
-  const resultDiv = document.getElementById('practiceResult');
-  resultDiv.textContent = message;
-  resultDiv.style.color = color;
+function stopPractice() {
+    practiceRunning = false;
 }
 
-// Account functionality
-const API_BASE_URL = '';
+// Account functions
+const API_BASE_URL = 'http://localhost:3000'; // replace with your VPS API endpoint
+
 async function registerUser() {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  if (!username || !password) {
-    updateAccountStatus('Please enter a username and password.', 'red');
-    return;
-  }
-  if (API_BASE_URL) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) {
+        alert('Please enter username and password.');
+        return;
+    }
     try {
-      const res = await fetch(`${API_BASE_URL}/register`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password})
-      });
-      const data = await res.json();
-      updateAccountStatus(data.message || 'Registered successfully.', 'green');
+        const response = await fetch(`${API_BASE_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        if (response.ok) {
+            alert('Registration successful.');
+        } else {
+            const data = await response.json();
+            alert('Registration failed: ' + (data.message || response.statusText));
+        }
     } catch (err) {
-      updateAccountStatus('Registration failed: ' + err.message, 'red');
+        // local fallback
+        const accounts = JSON.parse(localStorage.getItem('accounts') || '{}');
+        if (accounts[username]) {
+            alert('User already exists locally.');
+        } else {
+            accounts[username] = password;
+            localStorage.setItem('accounts', JSON.stringify(accounts));
+            alert('Registered locally.');
+        }
     }
-  } else {
-    const users = JSON.parse(localStorage.getItem('morse_users') || '{}');
-    if (users[username]) {
-      updateAccountStatus('Username already exists.', 'red');
-    } else {
-      users[username] = password;
-      localStorage.setItem('morse_users', JSON.stringify(users));
-      updateAccountStatus('Registered locally.', 'green');
-    }
-  }
 }
 
 async function loginUser() {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  if (!username || !password) {
-    updateAccountStatus('Please enter a username and password.', 'red');
-    return;
-  }
-  if (API_BASE_URL) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) {
+        alert('Please enter username and password.');
+        return;
+    }
     try {
-      const res = await fetch(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password})
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('morse_logged_in_user', username);
-        updateAccountStatus('Logged in successfully.', 'green');
-      } else {
-        updateAccountStatus(data.message || 'Login failed.', 'red');
-      }
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        if (response.ok) {
+            alert('Login successful.');
+        } else {
+            const data = await response.json();
+            alert('Login failed: ' + (data.message || response.statusText));
+        }
     } catch (err) {
-      updateAccountStatus('Login failed: ' + err.message, 'red');
+        const accounts = JSON.parse(localStorage.getItem('accounts') || '{}');
+        if (accounts[username] === password) {
+            alert('Logged in locally.');
+        } else {
+            alert('Login failed locally.');
+        }
     }
-  } else {
-    const users = JSON.parse(localStorage.getItem('morse_users') || '{}');
-    if (users[username] && users[username] === password) {
-      localStorage.setItem('morse_logged_in_user', username);
-      updateAccountStatus('Logged in locally.', 'green');
-    } else {
-      updateAccountStatus('Invalid credentials.', 'red');
-    }
-  }
-}
-
-function updateAccountStatus(msg, color) {
-  const statusDiv = document.getElementById('accountStatus');
-  statusDiv.textContent = msg;
-  statusDiv.style.color = color;
 }
